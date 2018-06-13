@@ -76,6 +76,29 @@ def fft_transform(file_path,true_pitch):
 	else:
 		print(pred_pitch,true_pitch)
 
+def cepstrum(file_path,true_pitch):
+	global correct_count
+	x, sr = librosa.load(file_path,sr=None)
+	x = librosa.resample(x, sr, target_sr)
+	ms_a = target_sr/2100
+	ms_b = target_sr/100
+	x_sample = x[10000:14096]
+	window = np.hamming(window_size)
+	y = fft(x_sample*window)
+	C = fft(np.log(abs(y)));
+	abs_C_sample = abs(C[ms_a:ms_b])
+	max_index = np.argmax(abs_C_sample)
+	fx = target_sr/(ms_a+max_index)
+	pred_pitch = librosa.hz_to_note(fx)
+	if pred_pitch == true_pitch:
+		correct_count += 1
+	else:
+		print(pred_pitch,true_pitch)
+	# index_array = np.argsort(-abs_C_sample)
+	# for i in range(0,5):
+	# 	fx = sr/(ms_a+index_array[i]-1)
+	# 	print(librosa.hz_to_note(fx))
+
 init_list()
 # print(pitch_list)
 # print(hz_list)
@@ -91,21 +114,8 @@ for pitch_dir in os.listdir(dataset_path):
 				split_dir_path = os.path.join(pitch_dir_path, split_dir)
 				for wav_file in filter(os.listdir(split_dir_path)):
 					wav_file_path = os.path.join(split_dir_path, wav_file)
-					fft_transform(wav_file_path,pitch_dir)
+					# fft_transform(wav_file_path,pitch_dir)
+					cepstrum(wav_file_path,pitch_dir)
 					total_count += 1
 
 print(correct_count,total_count)
-
-# x, sr = librosa.load('/Users/lisimin/Desktop/B5_E5_4.wav',sr=None)
-# ms_a = sr/2100
-# ms_b = sr/100
-
-# x_sample = x[20000:24096]
-# window = np.hamming(len(x_sample))
-# y = fft(x_sample*window)
-# C = fft(np.log(abs(y)));
-# abs_C_sample = abs(C[ms_a:ms_b])
-# index_array = np.argsort(-abs_C_sample)
-# for i in range(0,5):
-# 	fx = sr/(ms_a+index_array[i]-1)
-# 	print(librosa.hz_to_note(fx))
