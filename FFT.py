@@ -41,6 +41,11 @@ def filter(file_list):
 			wav_list.append(file)
 	return wav_list
 
+def sort_note(note):
+	pitch_list = note.split('_')
+	pitch_list.sort()
+	return '_'.join(pitch_list)
+
 def fft_transform(file_path,true_pitch):
 	global correct_count
 	x, sr = librosa.load(file_path,sr=None)
@@ -57,6 +62,8 @@ def fft_transform(file_path,true_pitch):
 		for sample_index in sample_list:
 			pitch_energy += abs_y[sample_index]**2
 		energy_list.append(pitch_energy)
+
+	# 找第一个音
 	tmp_energy_list = copy.deepcopy(energy_list)
 	# 加上谐波的能量
 	for index in range(len(energy_list)):
@@ -68,17 +75,56 @@ def fft_transform(file_path,true_pitch):
 		except:
 			pass
 	pitch_index = np.argmax(energy_list)+1
-	pred_pitch = pitch_list[pitch_index]
+	pred_pitch1 = pitch_list[pitch_index]
 	try:
 		octave_energy = energy_list[pitch_index-1-12]
 		if 4*octave_energy > energy_list[pitch_index-1]:
-			pred_pitch = pitch_list[pitch_index-12]
+			pred_pitch1 = pitch_list[pitch_index-12]
 	except:
 		pass
-	if pred_pitch == true_pitch:
-		correct_count += 1
+
+	# 找第二个音
+	pitch_index = pitch_list.index(pred_pitch1)
+	index = pitch_index - 1
+	energy_list[index] *= 0.01
+	try:
+		energy_list[index+12] *= 0.01
+		energy_list[index+19] *= 0.01
+		energy_list[index+24] *= 0.01
+		energy_list[index+28] *= 0.01
+	except:
+		pass
+
+	tmp_energy_list = copy.deepcopy(energy_list)
+	# 加上谐波的能量
+	for index in range(len(energy_list)):
+		try:
+			energy_list[index] += min(5*tmp_energy_list[index],tmp_energy_list[index+12])
+			energy_list[index] += min(5*tmp_energy_list[index],tmp_energy_list[index+19])
+			energy_list[index] += min(5*tmp_energy_list[index],tmp_energy_list[index+24])
+			energy_list[index] += min(5*tmp_energy_list[index],tmp_energy_list[index+28])
+		except:
+			pass
+	pitch_index = np.argmax(energy_list)+1
+	pred_pitch2 = pitch_list[pitch_index]
+	try:
+		octave_energy = energy_list[pitch_index-1-12]
+		if 4*octave_energy > energy_list[pitch_index-1]:
+			pred_pitch2 = pitch_list[pitch_index-12]
+	except:
+		pass
+
+	if pred_pitch1 == pred_pitch2:
+		if pred_pitch1 == true_pitch:
+			correct_count += 1
+		else:
+			print(pred_pitch2,true_pitch)
 	else:
-		print(pred_pitch,true_pitch)
+		pred_pitch = '%s_%s'%(pred_pitch1,pred_pitch2)
+		if sort_note(pred_pitch) == sort_note(true_pitch):
+			correct_count += 1
+		else:
+			print(pred_pitch,true_pitch)
 		# index = pitch_list.index(true_pitch)-1
 		# try:
 		# 	print(tmp_energy_list[index],tmp_energy_list[index+12],tmp_energy_list[index+19],tmp_energy_list[index+24],tmp_energy_list[index+28])
@@ -114,17 +160,18 @@ init_dic()
 
 dataset_path = '/Users/lisimin/Desktop/Violin/Dataset/BUPT'
 for pitch_dir in os.listdir(dataset_path):
-	if '_' not in pitch_dir:
+	if '.' not in pitch_dir:
 		pitch_dir_path = os.path.join(dataset_path, pitch_dir)
 		for split_dir in os.listdir(pitch_dir_path):
 			if '.' not in split_dir:
 				split_dir_path = os.path.join(pitch_dir_path, split_dir)
 				for wav_file in filter(os.listdir(split_dir_path)):
 					wav_file_path = os.path.join(split_dir_path, wav_file)
-					if librosa.note_to_midi(pitch_dir) < librosa.note_to_midi('C4'):
-						cepstrum(wav_file_path,pitch_dir)
-					else:
-						fft_transform(wav_file_path,pitch_dir)
+					# if librosa.note_to_midi(pitch_dir) < librosa.note_to_midi('C4'):
+					# 	cepstrum(wav_file_path,pitch_dir)
+					# else:
+					# 	fft_transform(wav_file_path,pitch_dir)
+					fft_transform(wav_file_path,pitch_dir)
 					total_count += 1
 
 print(correct_count,total_count)
